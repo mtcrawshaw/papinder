@@ -1,0 +1,18 @@
+The goal of this project is to create a tool to make it easier to sort through arXiv
+papers as they are released, i.e. Tinder for papers.
+
+The prototoype is a simple, terminal-based tool that will present a paper's title,
+authors, and abstract, and query for a simple positive/negative rating from the user,
+then repeat for each paper released that day on arXiv. The ratings will be stored and
+used to train an SVM to predict a paper's rating based on tf-idf of the abstract. Papers
+for a given day will be presented in order of their predicted rating, which will
+(hopefully) make it easier to only look at interesting papers instead of sorting through
+250 papers a day to find 3 good ones. The experience of rating papers should be fast and
+easy, akin to swiping left/right on Tinder.
+
+Roadmap:
+--> Fetch daily papers from arXiv
+    Get user rating for each paper
+    Convert abstract to tf-idf representation, store representations and ratings
+    Train SVM to predict ratings
+    Sort papers by predicted rating
