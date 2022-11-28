@@ -10,9 +10,17 @@ for a given day will be presented in order of their predicted rating, which will
 250 papers a day to find 3 good ones. The experience of rating papers should be fast and
 easy, akin to swiping left/right on Tinder.
 
-Roadmap:
---> Fetch daily papers from arXiv
+Prototype roadmap:
     Get user rating for each paper
+--> Fetch daily papers from arXiv
     Convert abstract to tf-idf representation, store representations and ratings
     Train SVM to predict ratings
     Sort papers by predicted rating
+
+Features for later:
+- Remove need to press Enter for each rating by getting input with Cython/curses
+- Nicer printing with curses?
+- Go through papers that you missed on previous days
+- Add results to paper trail
+- Android app?
+- Multiple users?
