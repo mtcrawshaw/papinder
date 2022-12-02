@@ -8,30 +8,33 @@ from paper import Paper
 LINE_LEN = 88
 
 
-def get_ratings(papers: List) -> dict:
+def get_ratings(papers: List, daily_size: int, daily_offset: int) -> dict:
     """ Get ratings for all papers in a list. """
+
     ratings = {}
-    for paper in papers:
+    for i, paper in enumerate(papers):
         try:
-            rating = get_rating(paper)
-            ratings[paper.id] = (paper.title, rating)
+            prefix = f"[{daily_offset+i+1}/{daily_size}]"
+            rating = get_rating(paper, prefix)
+            ratings[paper.identifier] = (paper.abstract, rating)
         except KeyboardInterrupt:
-            print("\n\nSaving partial results.")
+            print("\n\nSaving partial results.\n")
             break
 
     return ratings
 
 
-def get_rating(paper: Paper) -> bool:
+def get_rating(paper: Paper, prefix: str) -> bool:
     """ Print information for a paper and collect/return user rating. """
 
     # Print paper information.
     print("\n" + "=" * LINE_LEN + "\n")
-    print(paper.title)
+    print(prefix + " " + paper.title)
+    print(paper.published)
     print("")
     if len(paper.authors) > 0:
         print(paper.authors[0], end="")
-        for author in paper.authors[:1]:
+        for author in paper.authors[1:]:
             print(f", {author}", end="")
         print("\n")
     print(paper.abstract)

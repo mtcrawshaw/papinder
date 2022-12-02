@@ -18,9 +18,13 @@ Prototype roadmap:
     Sort papers by predicted rating
 
 Features for later:
-- Remove need to press Enter for each rating by getting input with Cython/curses
-- Nicer printing with curses?
-- Go through papers that you missed on previous days
+- Caching query results
 - Add results to paper trail
+- Nicer printing with curses
+- Store which days have been looked through, allow for searching through previous missed
+  days
+- "Done" input to signal that the rest of the papers from today are not worth searching
+- Remove need to press Enter for each rating by getting input with Cython/curses
+- Undo
 - Android app?
 - Multiple users?
