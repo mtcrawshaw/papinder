@@ -5,41 +5,38 @@ import pickle
 
 from fetch import get_daily_papers
 from interface import get_ratings
-
-
-DATA_DIR = "data"
-RATINGS_NAME = "ratings.pkl"
+from recommender import recommended_sort, train_recommender
+from utils import RATINGS_PATH
 
 
 def main():
 
     # Read database of ratings.
-    ratings_path = os.path.join(DATA_DIR, RATINGS_NAME)
-    if os.path.isfile(ratings_path):
-        with open(ratings_path, "rb") as f:
+    if os.path.isfile(RATINGS_PATH):
+        with open(RATINGS_PATH, "rb") as f:
             ratings = pickle.load(f)
     else:
         ratings = {}
 
     # Fetch arXiv releases for today and keep those that haven't yet been rated.
     daily_papers = get_daily_papers()
-    daily_size = len(daily_papers)
-    daily_papers = [p for p in daily_papers if p.identifier not in ratings.keys()]
-    daily_offset = daily_size - len(daily_papers)
+    unrated_papers = [p for p in daily_papers if p.identifier not in ratings.keys()]
+    daily_offset = len(daily_papers) - len(unrated_papers)
 
-    # Present papers and query user for rating.
-    daily_ratings = get_ratings(daily_papers, daily_size, daily_offset)
+    # Sort unrated papers by predicted rating and present to user for rating.
+    unrated_papers = recommended_sort(unrated_papers)
+    daily_ratings = get_ratings(unrated_papers, len(daily_papers), daily_offset)
 
     # Update database of ratings.
     ratings.update(daily_ratings)
-    parent = os.path.dirname(ratings_path)
+    parent = os.path.dirname(RATINGS_PATH)
     if not os.path.isdir(parent):
         os.makedirs(parent)
-    with open(ratings_path, "wb") as f:
+    with open(RATINGS_PATH, "wb") as f:
         pickle.dump(ratings, f)
 
-    # Retrain SVM.
-    raise NotImplementedError
+    # Retrain SVM with new ratings.
+    train_recommender(ratings)
 
 
 if __name__ == "__main__":

@@ -12,14 +12,17 @@ def get_ratings(papers: List, daily_size: int, daily_offset: int) -> dict:
     """ Get ratings for all papers in a list. """
 
     ratings = {}
+    print("Today's papers:")
     for i, paper in enumerate(papers):
         try:
             prefix = f"[{daily_offset+i+1}/{daily_size}]"
             rating = get_rating(paper, prefix)
-            ratings[paper.identifier] = (paper.abstract, rating)
+            ratings[paper.identifier] = (paper, rating)
         except KeyboardInterrupt:
             print("\n\nSaving partial results.\n")
             break
+    if len(papers) == 0:
+        print("No new papers.")
 
     return ratings
 
@@ -31,6 +34,7 @@ def get_rating(paper: Paper, prefix: str) -> bool:
     print("\n" + "=" * LINE_LEN + "\n")
     print(prefix + " " + paper.title)
     print(paper.published)
+    print(paper.link)
     print("")
     if len(paper.authors) > 0:
         print(paper.authors[0], end="")
@@ -45,7 +49,7 @@ def get_rating(paper: Paper, prefix: str) -> bool:
         print("\nRating: ", end="")
         inp = input()
         if inp in ["0", "1"]:
-            rating = bool(inp)
+            rating = (inp == "1")
         else:
             print("Rating must be 0 or 1.")
 

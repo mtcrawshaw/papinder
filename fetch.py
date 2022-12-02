@@ -78,6 +78,7 @@ def parse_response(response: bytes) -> List[Paper]:
             authors=[a["name"] for a in entry.authors],
             published=date(year, month, day),
             abstract=entry.summary,
+            link=entry.link,
         ))
 
     return papers

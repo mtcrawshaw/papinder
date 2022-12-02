@@ -12,19 +12,21 @@ easy, akin to swiping left/right on Tinder.
 
 Prototype roadmap:
     Get user rating for each paper
---> Fetch daily papers from arXiv
-    Convert abstract to tf-idf representation, store representations and ratings
+    Fetch daily papers from arXiv
+--> Convert abstract to tf-idf representation, store representations and ratings
     Train SVM to predict ratings
     Sort papers by predicted rating
 
 Features for later:
-- Caching query results
 - Add results to paper trail
 - Nicer printing with curses
 - Store which days have been looked through, allow for searching through previous missed
   days
 - "Done" input to signal that the rest of the papers from today are not worth searching
+- Browse set of liked papers
 - Remove need to press Enter for each rating by getting input with Cython/curses
+- Caching query results
 - Undo
+- Bigram feature representation?
 - Android app?
 - Multiple users?
