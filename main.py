@@ -24,8 +24,11 @@ def main():
     daily_offset = len(daily_papers) - len(unrated_papers)
 
     # Sort unrated papers by predicted rating and present to user for rating.
+    print("Today's papers:")
     unrated_papers = recommended_sort(unrated_papers)
     daily_ratings = get_ratings(unrated_papers, len(daily_papers), daily_offset)
+    if len(unrated_papers) == 0:
+        print("No new papers.")
 
     # Update database of ratings.
     ratings.update(daily_ratings)
@@ -36,7 +39,9 @@ def main():
         pickle.dump(ratings, f)
 
     # Retrain SVM with new ratings.
+    print("\nTraining recommender.")
     train_recommender(ratings)
+    print("Finished training recommender.")
 
 
 if __name__ == "__main__":

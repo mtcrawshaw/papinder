@@ -12,7 +12,6 @@ def get_ratings(papers: List, daily_size: int, daily_offset: int) -> dict:
     """ Get ratings for all papers in a list. """
 
     ratings = {}
-    print("Today's papers:")
     for i, paper in enumerate(papers):
         try:
             prefix = f"[{daily_offset+i+1}/{daily_size}]"
@@ -21,8 +20,6 @@ def get_ratings(papers: List, daily_size: int, daily_offset: int) -> dict:
         except KeyboardInterrupt:
             print("\n\nSaving partial results.\n")
             break
-    if len(papers) == 0:
-        print("No new papers.")
 
     return ratings
 
