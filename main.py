@@ -3,45 +3,55 @@
 import os
 import pickle
 
-from fetch import get_daily_papers
+from fetch import get_papers
 from interface import get_ratings
 from recommender import recommended_sort, train_recommender
-from utils import RATINGS_PATH
+from utils import USER_DATA_PATH
 
 
 def main():
 
     # Read database of ratings.
-    if os.path.isfile(RATINGS_PATH):
-        with open(RATINGS_PATH, "rb") as f:
-            ratings = pickle.load(f)
+    if os.path.isfile(USER_DATA_PATH):
+        with open(USER_DATA_PATH, "rb") as f:
+            user_data = pickle.load(f)
+        ratings = user_data["ratings"]
+        checkpoint = user_data["checkpoint"]
+        init_date = user_data["init_date"]
     else:
         ratings = {}
+        checkpoint = None
+        init_date = None
 
-    # Fetch arXiv releases for today and keep those that haven't yet been rated.
-    daily_papers = get_daily_papers()
-    unrated_papers = [p for p in daily_papers if p.identifier not in ratings.keys()]
-    daily_offset = len(daily_papers) - len(unrated_papers)
+    # Fetch arXiv releases since checkpoint and keep those that haven't yet been rated.
+    batch_papers, init_date = get_papers(init_date=init_date, checkpoint=checkpoint)
+    unrated_papers = [p for p in batch_papers if p.identifier not in ratings.keys()]
 
     # Sort unrated papers by predicted rating and present to user for rating.
-    print("Today's papers:")
     unrated_papers = recommended_sort(unrated_papers)
-    daily_ratings = get_ratings(unrated_papers, len(daily_papers), daily_offset)
-    if len(unrated_papers) == 0:
-        print("No new papers.")
+    batch_ratings = get_ratings(unrated_papers, len(unrated_papers), init_date, checkpoint)
+    finished = (len(batch_ratings) == len(unrated_papers))
 
     # Update database of ratings.
-    ratings.update(daily_ratings)
-    parent = os.path.dirname(RATINGS_PATH)
+    ratings.update(batch_ratings)
+    parent = os.path.dirname(USER_DATA_PATH)
     if not os.path.isdir(parent):
         os.makedirs(parent)
-    with open(RATINGS_PATH, "wb") as f:
-        pickle.dump(ratings, f)
+    with open(USER_DATA_PATH, "wb") as f:
+        if len(ratings) > 0 and finished:
+            checkpoint = max([p.published for (p, _) in ratings.values()])
+        user_data = {
+            "ratings": ratings,
+            "checkpoint": checkpoint,
+            "init_date": init_date
+        }
+        pickle.dump(user_data, f)
 
     # Retrain SVM with new ratings.
-    print("\nTraining recommender.")
-    train_recommender(ratings)
-    print("Finished training recommender.")
+    if len(ratings) > 0:
+        print("Training recommender.")
+        train_recommender(ratings)
+        print("Finished training recommender.")
 
 
 if __name__ == "__main__":

@@ -2,28 +2,28 @@ The goal of this project is to create a tool to make it easier to sort through a
 papers as they are released, i.e. Tinder for papers.
 
 The prototoype is a simple, terminal-based tool that will present a paper's title,
-authors, and abstract, and query for a simple positive/negative rating from the user,
-then repeat for each paper released that day on arXiv. The ratings will be stored and
-used to train an SVM to predict a paper's rating based on tf-idf of the abstract. Papers
-for a given day will be presented in order of their predicted rating, which will
-(hopefully) make it easier to only look at interesting papers instead of sorting through
-250 papers a day to find 3 good ones. The experience of rating papers should be fast and
-easy, akin to swiping left/right on Tinder.
+authors, and abstract, and query for a positive/negative rating from the user, then
+repeat for each paper released that day on arXiv. The ratings will be stored and used to
+train an SVM to predict a paper's rating based on tf-idf of the abstract. Papers for a
+given day will be presented in order of their predicted rating, which will (hopefully)
+make it easier to only look at interesting papers instead of sorting through 250 papers
+a day to find 3 good ones. The experience of rating papers should be fast and easy, akin
+to swiping left/right on Tinder.
 
 Prototype roadmap:
     Get user rating for each paper
     Fetch daily papers from arXiv
     Train SVM to predict ratings
     Sort papers by predicted rating
---> Refactor filtering by date
+    Refactor filtering by date
 
 Features for later:
 - Add results to paper trail
 - Nicer printing with curses
-- "Done" input to signal that the rest of the papers from today are not worth searching
+- "Done" input to signal that the rest of the papers from batch are not worth searching
 - Browse set of liked papers
-- Remove need to press Enter for each rating by getting input with Cython/curses
 - Caching query results
+- Remove need to press Enter for each rating by getting input with Cython/curses
 - Undo
 - Bigram feature representation?
 - Android app?

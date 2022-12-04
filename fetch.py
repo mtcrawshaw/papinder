@@ -1,7 +1,7 @@
 """ Fetching arXiv papers from public API. """
 
 import urllib.request as libreq
-from datetime import date
+from datetime import date, timedelta
 from typing import List
 
 import feedparser
@@ -13,8 +13,18 @@ CATEGORY = "cs.LG"
 PAGE_RESULTS = 100
 
 
-def get_daily_papers() -> List[Paper]:
-    """ Get a list of papers released today on arXiv and return as Paper objects. """
+def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
+    """
+    Get a list of arXiv papers released on or after the later of ``init_date`` and
+    ``checkpoint`` minus 14 days. ``checkpoint`` is the last date that the user "caught
+    up" and rated all papers which were currently available at the time of rating. This
+    is a bit janky, but it's the cleanest way I've thought of to deal with the fact that
+    the arXiv API only dates papers by when they were submitted, but not all papers
+    which are submitted on the same day are released on the same day. The 14 day cushion
+    accounts for the event where we rate papers which were submitted on a given day, and
+    sometime after there are other papers released which were submitted on that same
+    day.
+    """
 
     # Construct API query.
     query_template = "http://export.arxiv.org/api/query?"
@@ -23,11 +33,21 @@ def get_daily_papers() -> List[Paper]:
     query_template += "&start={start}"
     query_template += f"&max_results={PAGE_RESULTS}"
 
-    # Query API in pages until we get all papers from today.
+    # Construct start date for papers.
+    if checkpoint is None and init_date is None:
+        start_date = None
+    elif checkpoint is None and init_date is not None:
+        start_date = init_date
+    elif checkpoint is not None and init_date is not None:
+        start_date = max(init_date, checkpoint - timedelta(days=14))
+    else:
+        raise NotImplementedError
+
+    # Query API in pages until we get all papers from the desired range.
     papers = []
     start = 0
-    current_date = None
     finished = False
+    print("Collecting papers.")
     while not finished:
         query = query_template.format(start=start)
         with libreq.urlopen(query) as url:
@@ -38,16 +58,15 @@ def get_daily_papers() -> List[Paper]:
         if len(batch_papers) == 0:
             finished = True
 
-        # Check if we have gotten all papers from the current date.
+        # Check if we have gotten all papers from the desired range.
         for paper in batch_papers:
 
-            # Set current_date if it hasn't yet been set. Note that this won't be
-            # today's date, it will be the date on which the most recent batch of papers
-            # were released.
-            if current_date is None:
-                current_date = paper.published
+            # Set start date to date of most recent paper, if necessary.
+            if start_date is None:
+                start_date = paper.published
+                init_date = start_date
 
-            if paper.published == current_date:
+            if paper.published >= start_date:
                 papers.append(paper)
             else:
                 finished = True
@@ -55,7 +74,7 @@ def get_daily_papers() -> List[Paper]:
 
         start += PAGE_RESULTS
 
-    return papers
+    return papers, init_date
 
 
 def parse_response(response: bytes) -> List[Paper]:

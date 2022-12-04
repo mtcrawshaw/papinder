@@ -1,5 +1,6 @@
 """ Text-based interface. """
 
+from datetime import date
 from typing import Tuple, List
 
 from paper import Paper
@@ -8,19 +9,29 @@ from paper import Paper
 LINE_LEN = 88
 
 
-def get_ratings(papers: List, daily_size: int, daily_offset: int) -> dict:
+def get_ratings(
+    papers: List, batch_size: int, init_date: date, checkpoint: date,
+) -> dict:
     """ Get ratings for all papers in a list. """
 
     ratings = {}
+
+    print("\n" + "=" * LINE_LEN + "\n")
+    print(f"Initial date: {init_date}")
+    print(f"Last checkpoint: {checkpoint}")
+    print(f"Today's date: {date.today()}")
+    print(f"Collected {batch_size} papers since checkpoint.")
+
     for i, paper in enumerate(papers):
         try:
-            prefix = f"[{daily_offset+i+1}/{daily_size}]"
+            prefix = f"[{i+1}/{batch_size}]"
             rating = get_rating(paper, prefix)
             ratings[paper.identifier] = (paper, rating)
         except KeyboardInterrupt:
             print("\n\nSaving partial results.\n")
             break
 
+    print("\n" + "=" * LINE_LEN + "\n")
     return ratings
 
 
