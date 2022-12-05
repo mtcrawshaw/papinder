@@ -13,29 +13,32 @@ from utils import MODEL_PATH
 
 
 TRAIN_SPLIT = 0.9
+RATING_TO_LABEL = {"0": -1, "1": 1, "2": 4}
 
 
 def recommended_sort(papers: List[Paper]) -> List[Paper]:
     """ Sort a list of papers by predicted rating. """
 
-    # Read in saved recommender.
+    # Make predictions, if a trained recommender exists.
+    pred_ratings = np.array([0] * len(papers))
     if os.path.isfile(MODEL_PATH) and len(papers) > 0:
         with open(MODEL_PATH, "rb") as f:
             recommender = pickle.load(f)
-            classifier = recommender["classifier"]
+            predictor = recommender["predictor"]
             vocabulary = recommender["vocabulary"]
 
         # Predict rating for each paper.
         vectorizer = TfidfVectorizer(stop_words="english", vocabulary=vocabulary)
         abstracts = [paper.abstract for paper in papers]
         paper_features = vectorizer.fit_transform(abstracts)
-        pred_ratings = classifier.decision_function(paper_features)
+        pred_ratings = predictor.predict(paper_features)
 
         # Sort papers by rating.
         sort_order = np.flip(np.argsort(pred_ratings))
         papers = [papers[i] for i in sort_order]
+        pred_ratings = [pred_ratings[i] for i in sort_order]
 
-    return papers
+    return papers, pred_ratings
 
 
 def train_recommender(ratings: dict) -> None:
@@ -51,8 +54,7 @@ def train_recommender(ratings: dict) -> None:
     vectorizer = TfidfVectorizer(stop_words="english")
     abstracts = [paper.abstract for (paper, _) in ratings.values()]
     paper_features = vectorizer.fit_transform(abstracts)
-    process_label = lambda x: -1 if x == 0 else 1
-    paper_labels = np.array([process_label(r) for (_, r) in ratings.values()])
+    paper_labels = np.array([RATING_TO_LABEL[r] for (_, r) in ratings.values()])
 
     # Split data into testing and training sets.
     total_size = len(ratings)
@@ -67,29 +69,29 @@ def train_recommender(ratings: dict) -> None:
     Y_test = paper_labels[train_size:]
 
     # Train SVM.
-    classifier = svm.SVC(kernel="linear")
-    classifier.fit(X_train, Y_train)
+    predictor = svm.SVR(kernel="linear")
+    predictor.fit(X_train, Y_train)
 
     # Print SVM metrics.
-    pred_Y_train = classifier.predict(X_train)
-    train_accuracy = np.sum(pred_Y_train == Y_train) / train_size
-    true_positive_train = np.sum(Y_train == 1) / train_size
-    pred_positive_train = np.sum(pred_Y_train == 1) / train_size
-    print(f"Training accuracy: {train_accuracy}")
+    pred_Y_train = predictor.predict(X_train)
+    train_mae = np.mean(np.abs(pred_Y_train - Y_train))
+    true_positive_train = np.sum(Y_train > 0) / train_size
+    pred_positive_train = np.sum(pred_Y_train > 0) / train_size
+    print(f"Training MAE: {train_mae}")
     print(f"True train positive proportion: {true_positive_train}")
     print(f"Predicted train positive proportion: {pred_positive_train}")
     if test_size > 0:
-        pred_Y_test = classifier.predict(X_test)
-        test_accuracy = np.sum(pred_Y_test == Y_test) / test_size
-        true_positive_test = np.sum(Y_test == 1) / test_size
-        pred_positive_test = np.sum(pred_Y_test == 1) / test_size
-        print(f"Testing accuracy: {test_accuracy}")
+        pred_Y_test = predictor.predict(X_test)
+        test_mae = np.mean(np.abs(pred_Y_test - Y_test))
+        true_positive_test = np.sum(Y_test > 0) / test_size
+        pred_positive_test = np.sum(pred_Y_test > 0) / test_size
+        print(f"Testing MAE: {test_mae}")
         print(f"True test positive proportion: {true_positive_test}")
         print(f"Predicted test positive proportion: {pred_positive_test}")
 
     # Save vectorizer and SVM weights for later recommendation.
     recommender = {
-        "classifier": classifier,
+        "predictor": predictor,
         "vocabulary": vectorizer.vocabulary_,
     }
     with open(MODEL_PATH, "wb") as f:

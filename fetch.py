@@ -47,7 +47,6 @@ def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
     papers = []
     start = 0
     finished = False
-    print("Collecting papers.")
     while not finished:
         query = query_template.format(start=start)
         with libreq.urlopen(query) as url:

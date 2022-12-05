@@ -3,14 +3,21 @@
 from datetime import date
 from typing import Tuple, List
 
+import numpy as np
+
 from paper import Paper
 
 
 LINE_LEN = 88
+VALID_RATINGS = ["0", "1", "2"]
 
 
 def get_ratings(
-    papers: List, batch_size: int, init_date: date, checkpoint: date,
+    papers: List,
+    pred_ratings: np.ndarray,
+    batch_size: int,
+    init_date: date,
+    checkpoint: date,
 ) -> dict:
     """ Get ratings for all papers in a list. """
 
@@ -25,7 +32,7 @@ def get_ratings(
     for i, paper in enumerate(papers):
         try:
             prefix = f"[{i+1}/{batch_size}]"
-            rating = get_rating(paper, prefix)
+            rating = get_rating(paper, prefix, pred_ratings[i])
             ratings[paper.identifier] = (paper, rating)
         except KeyboardInterrupt:
             print("\n\nSaving partial results.\n")
@@ -35,7 +42,7 @@ def get_ratings(
     return ratings
 
 
-def get_rating(paper: Paper, prefix: str) -> bool:
+def get_rating(paper: Paper, prefix: str, pred_rating: float) -> bool:
     """ Print information for a paper and collect/return user rating. """
 
     # Print paper information.
@@ -53,12 +60,13 @@ def get_rating(paper: Paper, prefix: str) -> bool:
 
     # Get user rating.
     rating = None
+    print(f"\nPredicted rating: {pred_rating}")
     while rating is None:
-        print("\nRating: ", end="")
+        print("Rating: ", end="")
         inp = input()
-        if inp in ["0", "1"]:
-            rating = (inp == "1")
+        if inp in VALID_RATINGS:
+            rating = inp
         else:
-            print("Rating must be 0 or 1.")
+            print(f"Rating must be in {VALID_RATINGS}.")
 
     return rating

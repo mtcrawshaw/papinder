@@ -28,8 +28,10 @@ def main():
     unrated_papers = [p for p in batch_papers if p.identifier not in ratings.keys()]
 
     # Sort unrated papers by predicted rating and present to user for rating.
-    unrated_papers = recommended_sort(unrated_papers)
-    batch_ratings = get_ratings(unrated_papers, len(unrated_papers), init_date, checkpoint)
+    unrated_papers, pred_ratings = recommended_sort(unrated_papers)
+    batch_ratings = get_ratings(
+        unrated_papers, pred_ratings, len(unrated_papers), init_date, checkpoint
+    )
     finished = (len(batch_ratings) == len(unrated_papers))
 
     # Update database of ratings.
