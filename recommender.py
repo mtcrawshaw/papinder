@@ -14,6 +14,10 @@ from utils import MODEL_PATH
 
 TRAIN_SPLIT = 0.9
 RATING_TO_LABEL = {"0": -1, "1": 1, "2": 4}
+VECTORIZER_KWARGS = {
+    "stop_words": "english",
+    "ngram_range": (1, 2),
+}
 
 
 def recommended_sort(papers: List[Paper]) -> List[Paper]:
@@ -28,7 +32,7 @@ def recommended_sort(papers: List[Paper]) -> List[Paper]:
             vocabulary = recommender["vocabulary"]
 
         # Predict rating for each paper.
-        vectorizer = TfidfVectorizer(stop_words="english", vocabulary=vocabulary)
+        vectorizer = TfidfVectorizer(vocabulary=vocabulary, **VECTORIZER_KWARGS)
         abstracts = [paper.abstract for paper in papers]
         paper_features = vectorizer.fit_transform(abstracts)
         pred_ratings = predictor.predict(paper_features)
@@ -51,7 +55,7 @@ def train_recommender(ratings: dict) -> None:
         return
 
     # Convert ratings into feature/label format for training.
-    vectorizer = TfidfVectorizer(stop_words="english")
+    vectorizer = TfidfVectorizer(**VECTORIZER_KWARGS)
     abstracts = [paper.abstract for (paper, _) in ratings.values()]
     paper_features = vectorizer.fit_transform(abstracts)
     paper_labels = np.array([RATING_TO_LABEL[r] for (_, r) in ratings.values()])

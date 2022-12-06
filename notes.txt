@@ -27,6 +27,5 @@ Features for later:
 - Caching query results
 - Remove need to press Enter for each rating by getting input with Cython/curses
 - Undo
-- Bigram feature representation?
 - Android app?
 - Multiple users?
