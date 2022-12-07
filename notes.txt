@@ -17,8 +17,8 @@ Prototype roadmap:
     Sort papers by predicted rating
     Refactor filtering by date
     Third rating for great papers
---> Network synchronization
     Signal to give rest of the papers 0
+--> Network synchronization
     Add great papers to paper trail
 
 Features for later:
