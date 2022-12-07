@@ -17,15 +17,14 @@ Prototype roadmap:
     Sort papers by predicted rating
     Refactor filtering by date
     Third rating for great papers
---> Add great papers to paper trail
+--> Network synchronization
     Signal to give rest of the papers 0
+    Add great papers to paper trail
 
 Features for later:
-- Sync ratings/recommendation across devices
 - Nicer printing with curses
 - Browse set of liked papers
 - Caching query results
 - Remove need to press Enter for each rating by getting input with Cython/curses
 - Undo
-- Android app?
 - Multiple users?

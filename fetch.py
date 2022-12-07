@@ -84,12 +84,12 @@ def parse_response(response: bytes) -> List[Paper]:
     for entry in feed.entries:
         abs_pos = entry.id.find("abs/")
         bare_id = entry.id[abs_pos+4:]
-        first_dash = entry.published.find("-")
-        second_dash = entry.published.find("-", first_dash + 1)
-        T_pos = entry.published.find("T")
-        year = int(entry.published[:first_dash])
-        month = int(entry.published[first_dash + 1: second_dash])
-        day = int(entry.published[second_dash + 1: T_pos])
+        first_dash = entry.updated.find("-")
+        second_dash = entry.updated.find("-", first_dash + 1)
+        T_pos = entry.updated.find("T")
+        year = int(entry.updated[:first_dash])
+        month = int(entry.updated[first_dash + 1: second_dash])
+        day = int(entry.updated[second_dash + 1: T_pos])
         papers.append(Paper(
             identifier=bare_id,
             title=entry.title,
