@@ -1,21 +1,21 @@
 """ Text-based interface. """
 
 from datetime import date
-from typing import Tuple, List
+from typing import List
 
 import numpy as np
 
 from paper import Paper
 
 
-LINE_LEN = 88
+WIDTH = 88
+SEPARATOR = f"\n{'=' * WIDTH}\n"
 VALID_RATINGS = ["-1", "0", "1", "2"]
 
 
 def get_ratings(
-    papers: List,
+    papers: List[Paper],
     pred_ratings: np.ndarray,
-    batch_size: int,
     init_date: date,
     checkpoint: date,
 ) -> dict:
@@ -23,11 +23,11 @@ def get_ratings(
 
     ratings = {}
 
-    print("\n" + "=" * LINE_LEN + "\n")
+    print(SEPARATOR)
     print(f"Initial date: {init_date}")
     print(f"Last checkpoint: {checkpoint}")
     print(f"Today's date: {date.today()}")
-    print(f"Collected {batch_size} papers since checkpoint.")
+    print(f"Collected {len(papers)} papers since checkpoint.")
 
     finished = False
     for i, paper in enumerate(papers):
@@ -38,7 +38,7 @@ def get_ratings(
             continue
 
         try:
-            prefix = f"[{i+1}/{batch_size}]"
+            prefix = f"[{i+1}/{len(papers)}]"
             rating = get_rating(paper, prefix, pred_ratings[i])
 
             # Check for -1 rating. This will give a 0 to the current paper and the rest
@@ -52,7 +52,7 @@ def get_ratings(
             print("\n\nSaving partial results.\n")
             break
 
-    print("\n" + "=" * LINE_LEN + "\n")
+    print(SEPARATOR)
     return ratings
 
 
@@ -60,17 +60,8 @@ def get_rating(paper: Paper, prefix: str, pred_rating: float) -> bool:
     """ Print information for a paper and collect/return user rating. """
 
     # Print paper information.
-    print("\n" + "=" * LINE_LEN + "\n")
-    print(prefix + " " + paper.title)
-    print(paper.published)
-    print(paper.link)
-    print("")
-    if len(paper.authors) > 0:
-        print(paper.authors[0], end="")
-        for author in paper.authors[1:]:
-            print(f", {author}", end="")
-        print("\n")
-    print(paper.abstract)
+    print(SEPARATOR)
+    print(f"{prefix} {paper}")
 
     # Get user rating.
     rating = None

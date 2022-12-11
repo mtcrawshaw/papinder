@@ -1,2 +1,3 @@
 feedparser
-sklearn
+scikit-learn
+numpy

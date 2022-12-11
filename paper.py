@@ -5,7 +5,6 @@ from typing import List
 
 
 class Paper:
-
     def __init__(
         self,
         identifier: str,
@@ -23,11 +22,13 @@ class Paper:
         self.link = str(link)
 
     def __repr__(self):
-        msg = ""
-        msg += f"ID: {self.identifier}\n"
-        msg += f"Title: {self.title}\n"
-        msg += f"Authors: {self.authors}\n"
-        msg += f"Published: {self.published}\n"
-        msg += f"Abstract: {self.abstract}\n"
-        msg += f"Link: {self.link}\n"
-        return msg
+        return "\n".join(
+            [
+                self.title,
+                str(self.published),
+                self.link,
+                "",
+                ", ".join(self.authors),
+                self.abstract,
+            ]
+        )
