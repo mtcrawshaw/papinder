@@ -27,4 +27,35 @@ Features for later:
 - Caching query results
 - Remove need to press Enter for each rating by getting input with Cython/curses
 - Undo
+- 2 layer NN for prediction?
 - Multiple users?
+
+
+========================================================================================
+
+Debugging notes:
+There is an issue that is causing Papinder to not to gather all intended papers.
+Basically, arXiv does not officially support queries with more than 30,000 results, and
+they also do not support filtering results by date. Therefore, if you want to gather ALL
+papers within a specific window of time, you simply have to query ALL papers, sort by
+date, then post-filter the results yourself. This causes problems because querying ALL
+papers yields more than 30,000 results, and in this case the response behavior is
+inconsistent: sometimes it returns a truncated results set without saying that there is
+an error. There aren't great solutions to this problem, but here's what we should try:
+- Detect truncated results set and perform retries until you get all results. This is
+  janky and will only work if arXiv's truncation of long results lists is inconsistent
+  (which seems to be the case). However it's simple and easy, so try this first. Make
+  sure to wait a little bit between calls to the API.
+- Find a way to refine the query so that you can gather all papers by aggregating the
+  results of many queries. This is hard because you can only search by a paper's title,
+  author, abstract, comment, journal reference, category, report number (?), and ID. One
+  possibility is to obtain a range of IDs corresponding to a window of time, then search
+  over many windows that cover the desired search time. I'm not exactly sure how IDs are
+  set and how speifically we can be in searching for IDs, and this information is
+  necessary for this method. If we can't use ID, is it possible to refine the query by
+  cleverly searching other fields?
+- Use the OAI-PMH interface for bulk harvesting. See
+  https://info.arxiv.org/help/api/user-manual.html#3112-start-and-max_results-paging for
+  an explanation of the behavior under large result sets and a link to information about
+  the OAI-PMH interface. Note that this documentation does not describe the issue of
+  inconsistent result set truncation.

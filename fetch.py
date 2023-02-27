@@ -10,7 +10,7 @@ from paper import Paper
 
 
 CATEGORY = "cs.LG"
-PAGE_RESULTS = 100
+PAGE_RESULTS = 1000
 
 
 def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
@@ -80,6 +80,16 @@ def parse_response(response: bytes) -> List[Paper]:
     """ Parse an Atom response from the arXiv API into a list of papers. """
 
     feed = feedparser.parse(response.decode())
+
+    # TODO: Check for error. When this happens, the response will contain a single entry
+    # "Error".
+    pass
+
+    # TODO: Check for empty entries list. This sometimes happens when the result set is
+    # too big (>30,000), which is not officially supported by the arXiv API.
+    pass
+
+    # Parse papers.
     papers = []
     for entry in feed.entries:
         abs_pos = entry.id.find("abs/")
