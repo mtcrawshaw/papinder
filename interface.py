@@ -29,25 +29,24 @@ def get_ratings(
     print(f"Today's date: {date.today()}")
     print(f"Collected {batch_size} papers since checkpoint.")
 
-    finished = False
+    ignore = False
     for i, paper in enumerate(papers):
 
-        # If finished signal was given, assign a 0 to every remaining paper.
-        if finished:
-            ratings[paper.identifier] = (paper, "0")
-            continue
-
         try:
-            prefix = f"[{i+1}/{batch_size}]"
-            rating = get_rating(paper, prefix, pred_ratings[i])
+            if ignore:
+                rating = "-1"
+            else:
+                prefix = f"[{i+1}/{batch_size}]"
+                rating = get_rating(paper, prefix, pred_ratings[i])
 
-            # Check for -1 rating. This will give a 0 to the current paper and the rest
-            # of the papers in the batch.
+            # Check for -1 rating. This will give -1 to this paper and the rest of the
+            # papers, which just means they will not be recommended again and will not
+            # be used to train the recommender.
             if rating == "-1":
-                finished = True
-                rating = "0"
+                ignore = True
 
             ratings[paper.identifier] = (paper, rating)
+
         except KeyboardInterrupt:
             print("\n\nSaving partial results.\n")
             break

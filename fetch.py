@@ -1,8 +1,9 @@
 """ Fetching arXiv papers from public API. """
 
 import urllib.request as libreq
+import time
 from datetime import date, timedelta
-from typing import List
+from typing import List, Tuple
 
 import feedparser
 
@@ -11,6 +12,7 @@ from paper import Paper
 
 CATEGORY = "cs.LG"
 PAGE_RESULTS = 1000
+WAIT_SECONDS = 5
 
 
 def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
@@ -44,18 +46,27 @@ def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
         raise NotImplementedError
 
     # Query API in pages until we get all papers from the desired range.
+    results_len = None
     papers = []
     start = 0
     finished = False
+    print("Collecting papers from arXiv API. This may take a minute.")
     while not finished:
+        time.sleep(WAIT_SECONDS)
         query = query_template.format(start=start)
         with libreq.urlopen(query) as url:
             response = url.read()
 
-        # Parse API response.
-        batch_papers = parse_response(response)
+        # Parse API response and check if we are finished paging results. We include a
+        # check for empty entries list: This sometimes happens when the result set is
+        # too big (>30,000), which is not officially supported by the arXiv API.
+        batch_papers, results_len = parse_response(response)
         if len(batch_papers) == 0:
-            finished = True
+            if start == results_len:
+                finished = True
+            else:
+                print(f"Received empty results list after {start}/{results_len}. Retrying...")
+                continue
 
         # Check if we have gotten all papers from the desired range.
         for paper in batch_papers:
@@ -76,20 +87,13 @@ def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
     return papers, init_date
 
 
-def parse_response(response: bytes) -> List[Paper]:
+def parse_response(response: bytes) -> Tuple[List[Paper], int]:
     """ Parse an Atom response from the arXiv API into a list of papers. """
 
     feed = feedparser.parse(response.decode())
 
-    # TODO: Check for error. When this happens, the response will contain a single entry
-    # "Error".
-    pass
-
-    # TODO: Check for empty entries list. This sometimes happens when the result set is
-    # too big (>30,000), which is not officially supported by the arXiv API.
-    pass
-
     # Parse papers.
+    results_len = feed.feed.opensearch_totalresults
     papers = []
     for entry in feed.entries:
         abs_pos = entry.id.find("abs/")
@@ -109,4 +113,4 @@ def parse_response(response: bytes) -> List[Paper]:
             link=entry.link,
         ))
 
-    return papers
+    return papers, results_len

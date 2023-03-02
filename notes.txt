@@ -22,12 +22,14 @@ Prototype roadmap:
     Add great papers to paper trail
 
 Features for later:
-- Nicer printing with curses
+- Undo
+- Hard-coded set of best authors: always recommend papers from them
+- Blacklisted keypharse (any paper with a blacklisted keyphrase is automatically ignored/rated 0)
 - Browse set of liked papers
+- 2 layer NN for prediction?
+- Nicer printing with curses
 - Caching query results
 - Remove need to press Enter for each rating by getting input with Cython/curses
-- Undo
-- 2 layer NN for prediction?
 - Multiple users?
 
 

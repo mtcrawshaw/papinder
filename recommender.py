@@ -48,6 +48,12 @@ def recommended_sort(papers: List[Paper]) -> List[Paper]:
 def train_recommender(ratings: dict) -> None:
     """ Train SVM to predict user rating of a paper from tf-idf of abstract. """
 
+    # Filter out all papers with rating of -1.
+    keys = list(ratings.keys())
+    for k in keys:
+        if ratings[k][1] == "-1":
+            del ratings[k]
+
     # Check whether ratings has at least two distinct classes.
     classes = set([r for (_, r) in ratings.values()])
     if len(classes) < 2:
@@ -73,25 +79,23 @@ def train_recommender(ratings: dict) -> None:
     Y_test = paper_labels[train_size:]
 
     # Train SVM.
+    print(f"Training set: {train_size}")
+    print(f"Testing set: {test_size}")
     predictor = svm.SVR(kernel="linear")
     predictor.fit(X_train, Y_train)
 
     # Print SVM metrics.
     pred_Y_train = predictor.predict(X_train)
+    train_acc = np.mean((Y_train > 0) == (pred_Y_train > 0))
     train_mae = np.mean(np.abs(pred_Y_train - Y_train))
-    true_positive_train = np.sum(Y_train > 0) / train_size
-    pred_positive_train = np.sum(pred_Y_train > 0) / train_size
+    print(f"Training accuracy: {train_acc}")
     print(f"Training MAE: {train_mae}")
-    print(f"True train positive proportion: {true_positive_train}")
-    print(f"Predicted train positive proportion: {pred_positive_train}")
     if test_size > 0:
         pred_Y_test = predictor.predict(X_test)
+        test_acc = np.mean((Y_test > 0) == (pred_Y_test > 0))
         test_mae = np.mean(np.abs(pred_Y_test - Y_test))
-        true_positive_test = np.sum(Y_test > 0) / test_size
-        pred_positive_test = np.sum(pred_Y_test > 0) / test_size
+        print(f"Testing accuracy: {test_acc}")
         print(f"Testing MAE: {test_mae}")
-        print(f"True test positive proportion: {true_positive_test}")
-        print(f"Predicted test positive proportion: {pred_positive_test}")
 
     # Save vectorizer and SVM weights for later recommendation.
     recommender = {
