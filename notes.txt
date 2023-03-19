@@ -18,13 +18,13 @@ Prototype roadmap:
     Refactor filtering by date
     Third rating for great papers
     Signal to give rest of the papers 0
---> Network synchronization
-    Add great papers to paper trail
+    Hard-coded set of best authors
+--> Undo
 
 Features for later:
-- Undo
-- Hard-coded set of best authors: always recommend papers from them
+- Network synchronization
 - Blacklisted keypharse (any paper with a blacklisted keyphrase is automatically ignored/rated 0)
+- Add great papers to paper trail
 - Browse set of liked papers
 - 2 layer NN for prediction?
 - Nicer printing with curses

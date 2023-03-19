@@ -2,6 +2,7 @@
 
 import os
 import pickle
+import json
 from typing import List
 
 import numpy as np
@@ -9,7 +10,7 @@ from sklearn import svm
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from paper import Paper
-from utils import MODEL_PATH
+from utils import MODEL_PATH, AUTHORS_PATH
 
 
 TRAIN_SPLIT = 0.9
@@ -42,7 +43,25 @@ def recommended_sort(papers: List[Paper]) -> List[Paper]:
         papers = [papers[i] for i in sort_order]
         pred_ratings = [pred_ratings[i] for i in sort_order]
 
-    return papers, pred_ratings
+    # Prioritize papers with white-listed authors.
+    prioritized = np.array([0] * len(papers))
+    if os.path.isfile(AUTHORS_PATH) and len(papers) > 0:
+        with open(AUTHORS_PATH, "r") as f:
+            best_authors = set(json.load(f)["authors"])
+
+        for i in range(len(papers)):
+            p = papers[i]
+            if len(set(p.authors) & set(best_authors)) > 0:
+                prioritized[i] = 1.0
+
+    # Re-order papers to that prioritized appear first.
+    prior_order = [i for i in range(len(papers)) if prioritized[i]]
+    prior_order += [i for i in range(len(papers)) if not prioritized[i]]
+    papers = [papers[i] for i in prior_order]
+    pred_ratings = [pred_ratings[i] for i in prior_order]
+    prioritized = [prioritized[i] for i in prior_order]
+
+    return papers, pred_ratings, prioritized
 
 
 def train_recommender(ratings: dict) -> None:

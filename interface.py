@@ -15,6 +15,7 @@ VALID_RATINGS = ["-1", "0", "1", "2"]
 def get_ratings(
     papers: List,
     pred_ratings: np.ndarray,
+    prioritized: np.ndarray,
     batch_size: int,
     init_date: date,
     checkpoint: date,
@@ -37,7 +38,7 @@ def get_ratings(
                 rating = "-1"
             else:
                 prefix = f"[{i+1}/{batch_size}]"
-                rating = get_rating(paper, prefix, pred_ratings[i])
+                rating = get_rating(paper, prefix, pred_ratings[i], bool(prioritized[i]))
 
             # Check for -1 rating. This will give -1 to this paper and the rest of the
             # papers, which just means they will not be recommended again and will not
@@ -55,7 +56,7 @@ def get_ratings(
     return ratings
 
 
-def get_rating(paper: Paper, prefix: str, pred_rating: float) -> bool:
+def get_rating(paper: Paper, prefix: str, pred_rating: float, prioritized: bool) -> bool:
     """ Print information for a paper and collect/return user rating. """
 
     # Print paper information.
@@ -68,6 +69,11 @@ def get_rating(paper: Paper, prefix: str, pred_rating: float) -> bool:
         print(paper.authors[0], end="")
         for author in paper.authors[1:]:
             print(f", {author}", end="")
+        if prioritized:
+            print("\nPrioritized!", end="")
+        print("\n")
+    elif prioritized:
+        print("Prioritized!")
         print("\n")
     print(paper.abstract)
 

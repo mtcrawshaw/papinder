@@ -27,10 +27,16 @@ def main():
     batch_papers, init_date = get_papers(init_date=init_date, checkpoint=checkpoint)
     unrated_papers = [p for p in batch_papers if p.identifier not in ratings.keys()]
 
-    # Sort unrated papers by predicted rating and present to user for rating.
-    unrated_papers, pred_ratings = recommended_sort(unrated_papers)
+    # Sort unrated papers by predicted rating and prioritize those with white-listed
+    # authors, then present papers to user for ratings.
+    unrated_papers, pred_ratings, prioritized = recommended_sort(unrated_papers)
     batch_ratings = get_ratings(
-        unrated_papers, pred_ratings, len(unrated_papers), init_date, checkpoint
+        unrated_papers,
+        pred_ratings,
+        prioritized,
+        len(unrated_papers),
+        init_date,
+        checkpoint
     )
     finished = (len(batch_ratings) == len(unrated_papers))
 
