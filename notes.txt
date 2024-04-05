@@ -22,6 +22,7 @@ Prototype roadmap:
 --> Undo
 
 Features for later:
+- Store fetched papers (even when unrated) for later
 - Network synchronization
 - Blacklisted keypharse (any paper with a blacklisted keyphrase is automatically ignored/rated 0)
 - Add great papers to paper trail
