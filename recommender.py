@@ -3,7 +3,7 @@
 import os
 import pickle
 import json
-from typing import List
+from typing import List, Tuple, Optional
 
 import numpy as np
 from sklearn import svm
@@ -21,11 +21,11 @@ VECTORIZER_KWARGS = {
 }
 
 
-def recommended_sort(papers: List[Paper]) -> List[Paper]:
+def recommended_sort(papers: List[Paper], cached_papers: Optional[List[Tuple[Paper, float]]] = None) -> List[Paper]:
     """ Sort a list of papers by predicted rating. """
 
     # Make predictions, if a trained recommender exists.
-    pred_ratings = np.array([0] * len(papers))
+    pred_ratings = np.random.random(size=len(papers))
     if os.path.isfile(MODEL_PATH) and len(papers) > 0:
         with open(MODEL_PATH, "rb") as f:
             recommender = pickle.load(f)
@@ -38,10 +38,19 @@ def recommended_sort(papers: List[Paper]) -> List[Paper]:
         paper_features = vectorizer.fit_transform(abstracts)
         pred_ratings = predictor.predict(paper_features)
 
-        # Sort papers by rating.
-        sort_order = np.flip(np.argsort(pred_ratings))
-        papers = [papers[i] for i in sort_order]
-        pred_ratings = [pred_ratings[i] for i in sort_order]
+    # Combine predictions with cache.
+    if cached_papers is not None:
+        combined_ratings = np.concatenate([pred_ratings, np.zeros(len(cached_papers))])
+        start = len(pred_ratings)
+        for i, (p, r) in enumerate(cached_papers):
+            papers.append(p)
+            combined_ratings[start + i] = r
+        pred_ratings = combined_ratings.copy()
+
+    # Sort papers by rating.
+    sort_order = np.flip(np.argsort(pred_ratings))
+    papers = [papers[i] for i in sort_order]
+    pred_ratings = [pred_ratings[i] for i in sort_order]
 
     # Prioritize papers with white-listed authors.
     prioritized = np.array([0] * len(papers))
@@ -54,7 +63,7 @@ def recommended_sort(papers: List[Paper]) -> List[Paper]:
             if len(set(p.authors) & set(best_authors)) > 0:
                 prioritized[i] = 1.0
 
-    # Re-order papers to that prioritized appear first.
+    # Re-order papers so that prioritized appear first.
     prior_order = [i for i in range(len(papers)) if prioritized[i]]
     prior_order += [i for i in range(len(papers)) if not prioritized[i]]
     papers = [papers[i] for i in prior_order]

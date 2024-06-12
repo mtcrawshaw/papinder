@@ -48,7 +48,7 @@ def get_ratings(
             ratings[paper.identifier] = (paper, rating)
 
         except KeyboardInterrupt:
-            print("\n\nSaving partial results.\n")
+            print("\n\nSaving partial results.")
             break
 
     print("\n" + "=" * LINE_LEN + "\n")

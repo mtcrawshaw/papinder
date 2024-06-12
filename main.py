@@ -28,18 +28,19 @@ def main():
     # Fetch arXiv releases since checkpoint and keep those that haven't yet been rated.
     print("Collecting papers from arXiv API. This may take a minute.")
     batch_papers, init_date = get_papers(init_date=init_date, checkpoint=checkpoint)
-    current_ids = [q.identifier for q in batch_papers]
-    for p in cached_papers:
-        if p.identifier not in current_ids:
-            batch_papers.append(p)
-            current_ids.append(p.identifier)
-    unrated_papers = [p for p in batch_papers if p.identifier not in ratings.keys()]
-    print("Done collecting papers.")
+    cached_ids = [p.identifier for (p, _) in cached_papers]
+    unrated_papers = [
+        p for p in batch_papers if p.identifier not in ratings.keys() and p.identifier not in cached_ids
+    ]
+    print(f"Collected {len(unrated_papers)} new papers, all done.")
+    print(f"Loaded {len(cached_papers)} papers from cache.")
 
     # Sort unrated papers by predicted rating and prioritize those with white-listed
     # authors, then present papers to user for ratings.
     print("Sorting papers based on predicted recommendation.")
-    unrated_papers, pred_ratings, prioritized = recommended_sort(unrated_papers)
+    unrated_papers, pred_ratings, prioritized = recommended_sort(
+        unrated_papers, cached_papers=cached_papers
+    )
     batch_ratings = get_ratings(
         unrated_papers,
         pred_ratings,
@@ -52,9 +53,9 @@ def main():
     # Update database of ratings.
     ratings.update(batch_ratings)
     if len(ratings) > 0:
-        paper_dates = [p.published for (p, _) in ratings.values()] + [p.published for p in cached_papers]
+        paper_dates = [p.published for (p, _) in ratings.values()] + [p.published for (p, _) in cached_papers]
         checkpoint = max(paper_dates)
-    cached_papers = [p for p in batch_papers if p.identifier not in ratings.keys()]
+    cached_papers = [(p, pred_ratings[i]) for (i, p) in enumerate(unrated_papers) if p.identifier not in ratings.keys()]
     user_data = {
         "ratings": ratings,
         "cached_papers": cached_papers,
