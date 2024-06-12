@@ -28,7 +28,6 @@ def get_ratings(
     print(f"Initial date: {init_date}")
     print(f"Last checkpoint: {checkpoint}")
     print(f"Today's date: {date.today()}")
-    print(f"Collected {batch_size} papers since checkpoint.")
 
     ignore = False
     for i, paper in enumerate(papers):

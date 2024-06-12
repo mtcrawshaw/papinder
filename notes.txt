@@ -19,17 +19,16 @@ Prototype roadmap:
     Third rating for great papers
     Signal to give rest of the papers 0
     Hard-coded set of best authors
---> Undo
+--> Cache unrated papers
+    Undo
 
 Features for later:
-- Store fetched papers (even when unrated) for later
 - Network synchronization
 - Blacklisted keypharse (any paper with a blacklisted keyphrase is automatically ignored/rated 0)
 - Add great papers to paper trail
 - Browse set of liked papers
 - 2 layer NN for prediction?
 - Nicer printing with curses
-- Caching query results
 - Remove need to press Enter for each rating by getting input with Cython/curses
 - Multiple users?
 

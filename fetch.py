@@ -18,11 +18,11 @@ WAIT_SECONDS = 5
 def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
     """
     Get a list of arXiv papers released on or after the later of ``init_date`` and
-    ``checkpoint`` minus 14 days. ``checkpoint`` is the last date that the user "caught
+    ``checkpoint`` minus 7 days. ``checkpoint`` is the last date that the user "caught
     up" and rated all papers which were currently available at the time of rating. This
     is a bit janky, but it's the cleanest way I've thought of to deal with the fact that
     the arXiv API only dates papers by when they were submitted, but not all papers
-    which are submitted on the same day are released on the same day. The 14 day cushion
+    which are submitted on the same day are released on the same day. The 7 day cushion
     accounts for the event where we rate papers which were submitted on a given day, and
     sometime after there are other papers released which were submitted on that same
     day.
@@ -41,7 +41,7 @@ def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
     elif checkpoint is None and init_date is not None:
         start_date = init_date
     elif checkpoint is not None and init_date is not None:
-        start_date = max(init_date, checkpoint - timedelta(days=14))
+        start_date = max(init_date, checkpoint - timedelta(days=7))
     else:
         raise NotImplementedError
 
@@ -50,7 +50,6 @@ def get_papers(init_date=None, checkpoint=None) -> List[Paper]:
     papers = []
     start = 0
     finished = False
-    print("Collecting papers from arXiv API. This may take a minute.")
     while not finished:
         time.sleep(WAIT_SECONDS)
         query = query_template.format(start=start)
