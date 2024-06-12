@@ -21,8 +21,18 @@ VECTORIZER_KWARGS = {
 }
 
 
-def recommended_sort(papers: List[Paper], cached_papers: Optional[List[Tuple[Paper, float]]] = None) -> List[Paper]:
+def recommended_sort(
+    papers: List[Paper],
+    cached_papers: Optional[List[Tuple[Paper, float]]] = None,
+    update_cache_ratings: bool = False
+) -> List[Paper]:
     """ Sort a list of papers by predicted rating. """
+
+    # If updating ratings for cached papers, remove cached ratings.
+    if update_cache_ratings and cached_papers is not None:
+        print("Updating ratings for cached papers.")
+        papers += [p for (p, r) in cached_papers]
+        cached_papers = None
 
     # Make predictions, if a trained recommender exists.
     pred_ratings = np.random.random(size=len(papers))
