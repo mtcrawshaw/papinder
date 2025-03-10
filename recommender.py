@@ -75,12 +75,13 @@ def recommended_sort(
 
     # Re-order papers so that prioritized appear first.
     prior_order = [i for i in range(len(papers)) if prioritized[i]]
+    num_prioritized = len(prior_order)
     prior_order += [i for i in range(len(papers)) if not prioritized[i]]
     papers = [papers[i] for i in prior_order]
     pred_ratings = [pred_ratings[i] for i in prior_order]
     prioritized = [prioritized[i] for i in prior_order]
 
-    return papers, pred_ratings, prioritized
+    return papers, pred_ratings, prioritized, num_prioritized
 
 
 def train_recommender(ratings: dict) -> None:

@@ -23,16 +23,17 @@ Prototype roadmap:
     Options for expensive operations (collecting new papers, re-predicting rating for cached papers, retraining predictor)
 
 Features for later:
+- Fix bug with multiple copies of the same paper
+- Network synchronization
+- Sort by twitter popularity
 - Undo
 - Browse set of liked papers
-- Network synchronization
-- Blacklisted keypharse (any paper with a blacklisted keyphrase is automatically ignored/rated 0)
-- Add great papers to paper trail
-- 2 layer NN for prediction?
-- Nicer printing with curses
-- Remove need to press Enter for each rating by getting input with Cython/curses
-- Multiple users?
+- Blacklisted phrase (any paper with a blacklisted keyphrase is automatically ignored/rated 0)
+- Add papers to paper trail
+- 2 layer NN for prediction
+- Multiple users
 
+Bug: Same paper is presented for rating multiple times.
 
 ========================================================================================
 

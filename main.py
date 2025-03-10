@@ -43,9 +43,10 @@ def main(no_fetch=False, no_retrain=False, update_cache_ratings=False):
     # Sort unrated papers by predicted rating and prioritize those with white-listed
     # authors, then present papers to user for ratings.
     print("Sorting papers based on predicted recommendation.")
-    unrated_papers, pred_ratings, prioritized = recommended_sort(
+    unrated_papers, pred_ratings, prioritized, num_prioritized = recommended_sort(
         unrated_papers, cached_papers=cached_papers, update_cache_ratings=update_cache_ratings
     )
+    print(f"{num_prioritized} papers prioritized by author.")
     batch_ratings = get_ratings(
         unrated_papers,
         pred_ratings,
