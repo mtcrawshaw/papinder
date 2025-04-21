@@ -17,7 +17,7 @@ def main(no_fetch=False, no_retrain=False, update_cache_ratings=False):
         with open(USER_DATA_PATH, "rb") as f:
             user_data = pickle.load(f)
         ratings = user_data["ratings"]
-        cached_papers = user_data["cached_papers"]
+        cached_papers = user_data["cached_papers"] if "cached_papers" in user_data else []
         checkpoint = user_data["checkpoint"]
         init_date = user_data["init_date"]
     else:
