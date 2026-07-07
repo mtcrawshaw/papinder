@@ -3,13 +3,12 @@
 Scrape NeurIPS 2025 papers: title, authors, abstract.
 
 Usage:
-  python scrape_neurips2025.py --out-json neurips2025.json --out-csv neurips2025.csv
+  python scrape_neurips2025.py --out-json neurips2025.json
 """
 
 import re
 import time
 import json
-import csv
 import sys
 import argparse
 from pathlib import Path
@@ -161,7 +160,7 @@ def extract_title_authors_abstract(html):
     return title, authors, abstract_text
 
 
-def scrape_all(out_json, out_csv, sleep_sec=0.4):
+def scrape_all(out_json, sleep_sec=0.4):
     session = requests.Session()
     posters = discover_poster_urls(session)
     print(f"Discovered {len(posters)} poster pages")
@@ -191,15 +190,6 @@ def scrape_all(out_json, out_csv, sleep_sec=0.4):
         with open(out_json, "w", encoding="utf-8") as f:
             json.dump(rows, f, ensure_ascii=False, indent=2)
 
-    # Write CSV (authors joined by semicolon)
-    if out_csv:
-        Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
-        with open(out_csv, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["title", "authors", "abstract", "url"])
-            for r in rows:
-                writer.writerow([r["title"], "; ".join(r["authors"]), r["abstract"], r["url"]])
-
     print("Done.")
     return rows
 
@@ -207,10 +197,9 @@ def scrape_all(out_json, out_csv, sleep_sec=0.4):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-json", default="neurips2025_papers.json")
-    parser.add_argument("--out-csv", default="neurips2025_papers.csv")
     parser.add_argument("--sleep", type=float, default=0.5, help="Delay between requests (seconds)")
     args = parser.parse_args()
-    scrape_all(args.out_json, args.out_csv, sleep_sec=args.sleep)
+    scrape_all(args.out_json, sleep_sec=args.sleep)
 
 
 if __name__ == "__main__":
