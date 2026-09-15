@@ -1,42 +1,58 @@
-""" Fetching arXiv papers from public API. """
+""" Fetching arXiv papers via the OAI-PMH bulk-harvesting interface. """
 
+import re
 import time
 import socket
 import urllib.request as libreq
 import urllib.parse as libparse
-from datetime import date, datetime, timedelta, timezone
+import xml.etree.ElementTree as ET
+from datetime import date, timedelta
+from email.utils import parsedate_to_datetime
 from typing import List, Optional, Tuple
-
-import feedparser
 
 from paper import Paper
 
 
 CATEGORY = "cs.LG"
-API_URL = "https://export.arxiv.org/api/query"
 
-# The arXiv API returns results in slices of at most 2000, and asks callers to
-# incorporate a 3 second delay between successive requests.
-PAGE_RESULTS = 2000
+# OAI-PMH sets are named "<archive>:<archive>:<subcategory>", e.g. "cs:cs:LG".
+_ARCHIVE, _SUBCATEGORY = CATEGORY.split(".")
+OAI_SET = f"{_ARCHIVE}:{_ARCHIVE}:{_SUBCATEGORY}"
+
+# export.arxiv.org/oai2 (the URL in every older writeup) 301-redirects here as of
+# March 2025. This is a separate host/service from the search API used previously
+# in this file, and is arXiv's own recommended path for exactly this use case: see
+# https://info.arxiv.org/help/bulk_data.html ("OAI-PMH ... the preferred way to
+# bulk-download or keep an up-to-date copy of arXiv metadata").
+OAI_URL = "https://oaipmh.arxiv.org/oai"
+
+# "arXivRaw" is the only metadata format that exposes real per-version history
+# (each <version> has its own date). The plain "arXiv" format's <created> field
+# does *not* reliably mean "original v1 submission date" once a paper has been
+# revised -- verified against a live record where it tracked the latest revision
+# instead of the original 2021 submission date.
+METADATA_PREFIX = "arXivRaw"
+
+NS = {
+    "oai": "http://www.openarchives.org/OAI/2.0/",
+    "raw": "http://arxiv.org/OAI/arXivRaw/",
+}
+
+# arXiv's Terms of Use ask for at most one request every 3 seconds, across all of
+# their APIs (search, OAI-PMH, RSS).
 WAIT_SECONDS = 3
 
-# The API refuses (HTTP 500) to page deep into a large result set, so we split
-# the requested date range into windows of this many days and fetch each window
-# separately. A week of cs.LG is only ~1000-1500 papers, so each window is
-# typically a single page with no deep paging.
-WINDOW_DAYS = 7
-
-# Retry settings for flaky responses (timeouts, 5xx errors, truncated feeds).
+# Retry settings for flaky responses (timeouts, 5xx errors, malformed XML).
 REQUEST_TIMEOUT = 60
 MAX_RETRIES = 5
 RETRY_WAIT_SECONDS = 15
 
-# arXiv fronts the API with a CDN/WAF layer that enforces a stricter, IP-based
-# rate limit than the "3 seconds between requests" guidance in their docs, and
-# will respond 429 "Rate exceeded" even to well-paced, low-volume traffic (this
-# is a widely-reported 2026 issue, not specific to this code). Retrying quickly
-# only prolongs it, so a 429 gets its own exponential backoff instead of the
-# flat retry above.
+# The search API (previously used in this file) sits behind a CDN/WAF that
+# enforces a much stricter, capacity-based rate limit than documented and will
+# 429 even low-volume, well-paced traffic -- a widely-reported, arXiv-acknowledged
+# 2026 issue. OAI-PMH is separate infrastructure and hasn't shown this in testing,
+# but we keep the same defensive backoff in case it ever does; retrying a rate
+# limit quickly only prolongs it.
 RATE_LIMIT_MAX_RETRIES = 6
 RATE_LIMIT_BASE_WAIT = 30
 RATE_LIMIT_MAX_WAIT = 600
@@ -48,95 +64,92 @@ USER_AGENT = (
 )
 
 # When neither an init date nor a checkpoint is known (first run), only look back
-# this many days from the most recent submission.
+# this many days.
 DEFAULT_LOOKBACK_DAYS = 3
 
 # Cushion applied to the checkpoint, in days. ``checkpoint`` is the last date the
 # user "caught up" and rated all papers available at the time. We re-fetch a few
-# days before that because a paper submitted on a given day may only be announced
-# (and so become visible to us) a day or two later.
+# days before that as a safety margin (processing lag, timezone edge effects).
 CHECKPOINT_CUSHION_DAYS = 7
 
 
 def get_papers(init_date=None, checkpoint=None) -> Tuple[List[Paper], date]:
     """
-    Get a list of arXiv papers in ``CATEGORY`` submitted on or after the later of
-    ``init_date`` and ``checkpoint`` minus ``CHECKPOINT_CUSHION_DAYS``.
+    Get a list of arXiv papers in ``CATEGORY`` that were created or revised on or
+    after the later of ``init_date`` and ``checkpoint`` minus
+    ``CHECKPOINT_CUSHION_DAYS``.
 
-    Rather than downloading the entire category and filtering client-side (which
-    exceeds the arXiv API's supported result-set size and frequently times out),
-    this restricts the query with a ``submittedDate`` range. The range is fetched
-    one ``WINDOW_DAYS``-day window at a time, since the API returns HTTP 500 when
-    asked to page deep into a large result set.
+    Each returned ``Paper`` reflects the *latest version* known for its arXiv id
+    as of the harvest, with an identifier that includes that version (e.g.
+    "2109.02355v2") and a ``published`` date equal to that version's own date --
+    not the paper's original v1 submission date. This is deliberate: it's what
+    lets a later revision of a paper resurface as a new, unrated item (a new
+    version means a new identifier and a new date) instead of being silently
+    deduplicated against a version that was already rated.
+
+    OAI-PMH's ``from``/``until`` selective harvesting filters on when a record's
+    metadata last changed, not on original submission date, so it naturally
+    surfaces both brand-new papers and revisions of old ones -- exactly the two
+    cases we want. Pagination uses OAI-PMH's resumptionToken mechanism, which
+    (unlike the search API used previously) is designed to handle arbitrarily
+    large harvests without degrading.
     """
 
-    # Determine the earliest submission date we care about.
     start_date = _resolve_start_date(init_date, checkpoint)
     if init_date is None:
         init_date = start_date
+    end_date = date.today()
 
-    # End bound a day past "now" (GMT) so we don't miss anything near the boundary.
-    end_date = (datetime.now(timezone.utc) + timedelta(days=1)).date()
+    if start_date > end_date:
+        return [], init_date
 
-    # Fetch one date window at a time, de-duplicating across window boundaries.
+    print(f"Harvesting {CATEGORY} via OAI-PMH from {start_date} to {end_date}.")
+
     papers = []
-    seen_ids = set()
-    windows = list(_date_windows(start_date, end_date, WINDOW_DAYS))
-    for i, (win_start, win_end) in enumerate(windows):
-        if i > 0:
+    params = {
+        "verb": "ListRecords",
+        "metadataPrefix": METADATA_PREFIX,
+        "set": OAI_SET,
+        "from": start_date.isoformat(),
+        "until": end_date.isoformat(),
+    }
+    page = 0
+    while True:
+        if page > 0:
             time.sleep(WAIT_SECONDS)
-        print(
-            f"Fetching papers submitted {win_start} to {win_end} "
-            f"(window {i + 1}/{len(windows)})."
-        )
-        for paper in _query_window(win_start, win_end):
-            if paper.identifier not in seen_ids:
-                seen_ids.add(paper.identifier)
+        root = _oai_request(params)
+
+        error = root.find("oai:error", NS)
+        if error is not None:
+            if error.get("code") == "noRecordsMatch":
+                break
+            raise RuntimeError(f"OAI-PMH error ({error.get('code')}): {error.text}")
+
+        list_records = root.find("oai:ListRecords", NS)
+        if list_records is None:
+            raise RuntimeError("malformed OAI-PMH response (no ListRecords or error)")
+
+        for record in list_records.findall("oai:record", NS):
+            paper = _parse_record(record)
+            if paper is not None:
                 papers.append(paper)
 
-    # Guard against any boundary slop in the API's date filtering.
+        page += 1
+        print(f"Fetched page {page} ({len(papers)} papers so far).")
+
+        token = list_records.find("oai:resumptionToken", NS)
+        if token is None or not token.text:
+            break
+        params = {"verb": "ListRecords", "resumptionToken": token.text}
+
+    # Guard against any boundary slop in the date filtering.
     papers = [p for p in papers if p.published >= start_date]
 
     return papers, init_date
 
 
-def _date_windows(start_date: date, end_date: date, window_days: int):
-    """ Yield ``(win_start, win_end)`` pairs tiling ``[start_date, end_date)``. """
-
-    win_start = start_date
-    while win_start < end_date:
-        win_end = min(win_start + timedelta(days=window_days), end_date)
-        yield win_start, win_end
-        win_start = win_end
-
-
-def _query_window(win_start: date, win_end: date) -> List[Paper]:
-    """ Fetch every paper in ``CATEGORY`` submitted in ``[win_start, win_end)``. """
-
-    # submittedDate bounds are GMT timestamps to the minute. The range is
-    # inclusive on both ends, so consecutive windows share their boundary minute;
-    # the caller de-duplicates by identifier to absorb that overlap.
-    start_stamp = f"{win_start.strftime('%Y%m%d')}0000"
-    end_stamp = f"{win_end.strftime('%Y%m%d')}0000"
-    search_query = (
-        f"cat:{CATEGORY} AND submittedDate:[{start_stamp} TO {end_stamp}]"
-    )
-
-    papers = []
-    start = 0
-    total_results = None
-    while total_results is None or start < total_results:
-        if start > 0:
-            time.sleep(WAIT_SECONDS)
-        batch_papers, total_results = _query_page(search_query, start)
-        papers.extend(batch_papers)
-        start += PAGE_RESULTS
-
-    return papers
-
-
 def _resolve_start_date(init_date: Optional[date], checkpoint: Optional[date]) -> date:
-    """ Work out the earliest submission date to fetch. """
+    """ Work out the earliest date to fetch. """
 
     if checkpoint is not None and init_date is not None:
         return max(init_date, checkpoint - timedelta(days=CHECKPOINT_CUSHION_DAYS))
@@ -145,38 +158,55 @@ def _resolve_start_date(init_date: Optional[date], checkpoint: Optional[date]) -
     if init_date is not None:
         return init_date
 
-    # First run: anchor to the most recent submission date in the category.
-    latest = _latest_submitted_date()
-    return latest - timedelta(days=DEFAULT_LOOKBACK_DAYS)
+    return date.today() - timedelta(days=DEFAULT_LOOKBACK_DAYS)
 
 
-def _latest_submitted_date() -> date:
-    """ Return the submission date of the most recent paper in ``CATEGORY``. """
+def _parse_record(record: ET.Element) -> Optional[Paper]:
+    """ Turn one OAI-PMH <record> into a Paper reflecting its latest version. """
 
-    batch_papers, _ = _query_page(
-        f"cat:{CATEGORY}", start=0, max_results=1, sort_order="descending"
+    header = record.find("oai:header", NS)
+    if header.get("status") == "deleted":
+        return None
+
+    metadata = record.find("oai:metadata", NS)
+    if metadata is None:
+        return None
+    raw = metadata.find("raw:arXivRaw", NS)
+    if raw is None:
+        return None
+
+    paper_id = raw.find("raw:id", NS).text
+    versions = raw.findall("raw:version", NS)
+    if not versions:
+        return None
+    latest = versions[-1]
+    version_label = latest.get("version")
+    version_date = parsedate_to_datetime(latest.find("raw:date", NS).text).date()
+
+    abstract_el = raw.find("raw:abstract", NS)
+    abstract = abstract_el.text.strip() if abstract_el is not None and abstract_el.text else ""
+
+    return Paper(
+        identifier=f"{paper_id}{version_label}",
+        title=raw.find("raw:title", NS).text.strip(),
+        authors=_parse_authors(raw.find("raw:authors", NS).text),
+        published=version_date,
+        abstract=abstract,
+        link=f"https://arxiv.org/abs/{paper_id}",
     )
-    if not batch_papers:
-        return date.today()
-    return batch_papers[0].published
 
 
-def _query_page(
-    search_query: str,
-    start: int,
-    max_results: int = PAGE_RESULTS,
-    sort_order: str = "ascending",
-) -> Tuple[List[Paper], int]:
-    """ Fetch and parse a single page of API results, retrying on failure. """
+def _parse_authors(text: str) -> List[str]:
+    """ Split arXivRaw's free-form author string into individual names. """
 
-    params = libparse.urlencode({
-        "search_query": search_query,
-        "start": start,
-        "max_results": max_results,
-        "sortBy": "submittedDate",
-        "sortOrder": sort_order,
-    })
-    url = f"{API_URL}?{params}"
+    text = re.sub(r"\s+and\s+", ", ", text.strip())
+    return [name.strip() for name in text.split(",") if name.strip()]
+
+
+def _oai_request(params: dict) -> ET.Element:
+    """ Make one OAI-PMH request and parse the XML response, retrying on failure. """
+
+    url = f"{OAI_URL}?{libparse.urlencode(params)}"
     request = libreq.Request(url, headers={"User-Agent": USER_AGENT})
 
     last_error = None
@@ -186,24 +216,14 @@ def _query_page(
         try:
             with libreq.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
                 raw = response.read()
-            batch_papers, total_results = parse_response(raw)
-
-            # arXiv sometimes returns an empty feed for a page that should have
-            # results (a known symptom of overloaded / truncated responses).
-            # Retry unless we've genuinely reached the end of the result set.
-            if not batch_papers and start < total_results:
-                raise RuntimeError(
-                    f"empty page at {start}/{total_results}"
-                )
-
-            return batch_papers, total_results
+            return ET.fromstring(raw)
 
         except libreq.HTTPError as e:
             if e.code == 429:
                 rate_limit_attempt += 1
                 if rate_limit_attempt > RATE_LIMIT_MAX_RETRIES:
                     raise RuntimeError(
-                        f"arXiv API kept rate-limiting us after "
+                        f"arXiv OAI-PMH kept rate-limiting us after "
                         f"{RATE_LIMIT_MAX_RETRIES} backoffs"
                     ) from e
                 wait = min(
@@ -211,7 +231,7 @@ def _query_page(
                     RATE_LIMIT_MAX_WAIT,
                 )
                 print(
-                    f"Rate limited by arXiv API (429). Backing off {wait}s "
+                    f"Rate limited by arXiv OAI-PMH (429). Backing off {wait}s "
                     f"(backoff {rate_limit_attempt}/{RATE_LIMIT_MAX_RETRIES})."
                 )
                 time.sleep(wait)
@@ -219,44 +239,19 @@ def _query_page(
 
             last_error = e
             attempt += 1
-            print(f"arXiv API request failed (attempt {attempt}/{MAX_RETRIES}): {e}")
+            print(f"OAI-PMH request failed (attempt {attempt}/{MAX_RETRIES}): {e}")
             if attempt >= MAX_RETRIES:
                 raise RuntimeError(
-                    f"arXiv API request failed after {MAX_RETRIES} attempts: {last_error}"
+                    f"OAI-PMH request failed after {MAX_RETRIES} attempts: {last_error}"
                 ) from e
             time.sleep(RETRY_WAIT_SECONDS)
 
-        except (libreq.URLError, socket.timeout, RuntimeError) as e:
+        except (libreq.URLError, socket.timeout, ET.ParseError) as e:
             last_error = e
             attempt += 1
-            print(f"arXiv API request failed (attempt {attempt}/{MAX_RETRIES}): {e}")
+            print(f"OAI-PMH request failed (attempt {attempt}/{MAX_RETRIES}): {e}")
             if attempt >= MAX_RETRIES:
                 raise RuntimeError(
-                    f"arXiv API request failed after {MAX_RETRIES} attempts: {last_error}"
+                    f"OAI-PMH request failed after {MAX_RETRIES} attempts: {last_error}"
                 ) from e
             time.sleep(RETRY_WAIT_SECONDS)
-
-
-def parse_response(response: bytes) -> Tuple[List[Paper], int]:
-    """ Parse an Atom response from the arXiv API into a list of papers. """
-
-    feed = feedparser.parse(response)
-    if not hasattr(feed.feed, "opensearch_totalresults"):
-        raise RuntimeError("malformed API response (no opensearch:totalResults)")
-    total_results = int(feed.feed.opensearch_totalresults)
-
-    papers = []
-    for entry in feed.entries:
-        abs_pos = entry.id.find("abs/")
-        bare_id = entry.id[abs_pos + 4:]
-        published = date(*entry.updated_parsed[:3])
-        papers.append(Paper(
-            identifier=bare_id,
-            title=entry.title,
-            authors=[a["name"] for a in entry.authors],
-            published=published,
-            abstract=entry.summary,
-            link=entry.link,
-        ))
-
-    return papers, total_results
