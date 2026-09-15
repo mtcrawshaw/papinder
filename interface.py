@@ -30,14 +30,14 @@ def get_ratings(
     print(f"Today's date: {date.today()}")
 
     ignore = False
+    num_prioritized = int(np.sum(prioritized))
     for i, paper in enumerate(papers):
 
         try:
             if ignore:
                 rating = "-1"
             else:
-                prefix = f"[{i+1}/{batch_size}]"
-                rating = get_rating(paper, prefix, pred_ratings[i], bool(prioritized[i]))
+                rating = get_rating(paper, i, batch_size, num_prioritized, pred_ratings[i], bool(prioritized[i]))
 
             # Check for -1 rating. This will give -1 to this paper and the rest of the
             # papers, which just means they will not be recommended again and will not
@@ -55,12 +55,12 @@ def get_ratings(
     return ratings
 
 
-def get_rating(paper: Paper, prefix: str, pred_rating: float, prioritized: bool) -> bool:
+def get_rating(paper: Paper, i: int, batch_size: int, num_prioritized: int, pred_rating: float, prioritized: bool) -> bool:
     """ Print information for a paper and collect/return user rating. """
 
     # Print paper information.
     print("\n" + "=" * LINE_LEN + "\n")
-    print(prefix + " " + paper.title)
+    print(f"[{i+1}/{batch_size}] " + paper.title)
     print(paper.published)
     print(paper.link)
     print("")
@@ -69,10 +69,10 @@ def get_rating(paper: Paper, prefix: str, pred_rating: float, prioritized: bool)
         for author in paper.authors[1:]:
             print(f", {author}", end="")
         if prioritized:
-            print("\nPrioritized!", end="")
+            print(f"\nPrioritized! ({i+1}/{num_prioritized})", end="")
         print("\n")
     elif prioritized:
-        print("Prioritized!")
+        print(f"Prioritized! ({i+1}/{num_prioritized})")
         print("\n")
     print(paper.abstract)
 

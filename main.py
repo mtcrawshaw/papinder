@@ -75,7 +75,7 @@ def main(no_fetch=False, no_retrain=False, update_cache_ratings=False):
         pickle.dump(user_data, f)
 
     # Retrain SVM with new ratings.
-    if no_retrain or len(ratings) == 0:
+    if no_retrain or len(ratings) == 0 or len(batch_ratings) == 0:
         print("Skipping recommender training.")
     else:
         print("Training recommender.")
