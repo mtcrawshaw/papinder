@@ -249,7 +249,7 @@ def parse_response(response: bytes) -> Tuple[List[Paper], int]:
     for entry in feed.entries:
         abs_pos = entry.id.find("abs/")
         bare_id = entry.id[abs_pos + 4:]
-        published = date(*entry.published_parsed[:3])
+        published = date(*entry.updated_parsed[:3])
         papers.append(Paper(
             identifier=bare_id,
             title=entry.title,
