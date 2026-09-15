@@ -38,28 +38,17 @@ Bug: Same paper is presented for rating multiple times.
 ========================================================================================
 
 Debugging notes:
-There is an issue that is causing Papinder to not to gather all intended papers.
-Basically, arXiv does not officially support queries with more than 30,000 results, and
-they also do not support filtering results by date. Therefore, if you want to gather ALL
-papers within a specific window of time, you simply have to query ALL papers, sort by
-date, then post-filter the results yourself. This causes problems because querying ALL
-papers yields more than 30,000 results, and in this case the response behavior is
-inconsistent: sometimes it returns a truncated results set without saying that there is
-an error. There aren't great solutions to this problem, but here's what we should try:
-- Detect truncated results set and perform retries until you get all results. This is
-  janky and will only work if arXiv's truncation of long results lists is inconsistent
-  (which seems to be the case). However it's simple and easy, so try this first. Make
-  sure to wait a little bit between calls to the API.
-- Find a way to refine the query so that you can gather all papers by aggregating the
-  results of many queries. This is hard because you can only search by a paper's title,
-  author, abstract, comment, journal reference, category, report number (?), and ID. One
-  possibility is to obtain a range of IDs corresponding to a window of time, then search
-  over many windows that cover the desired search time. I'm not exactly sure how IDs are
-  set and how speifically we can be in searching for IDs, and this information is
-  necessary for this method. If we can't use ID, is it possible to refine the query by
-  cleverly searching other fields?
-- Use the OAI-PMH interface for bulk harvesting. See
-  https://info.arxiv.org/help/api/user-manual.html#3112-start-and-max_results-paging for
-  an explanation of the behavior under large result sets and a link to information about
-  the OAI-PMH interface. Note that this documentation does not describe the issue of
-  inconsistent result set truncation.
+
+8/15:
+Huge API requests (> 30,000 papers) were slow and inconsistent, so we've added date
+filtering. Also, if the last checkpoint is old enough, even date filtering isn't
+sufficient to avoid enormous API requests, so we now split each fetch into multiple
+fetches that cover a window of seven days each. There is also now logic for retrying
+failed queries after a cooldown to avoid getting rate limited.
+
+9/15:
+API requests are failing with HTTP 429 "Too many requests". Looks like arXiv updated
+their API to enforce stricter rate limits. fetch.py is now updated to use exponentially
+increasing waits between API requests. Also added a contact email to the request, as
+requested by arXiv's API documentation. Will try again but I suspect that requests will
+still not go through. May have to switch to OAI-PMH.
